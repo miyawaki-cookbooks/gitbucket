@@ -1,0 +1,85 @@
+#! /bin/bash
+#
+# gitbucket      Start Gitbucket service.
+#
+# chkconfig: 345 99 15
+# description:  Starts, stops. for CentOS only.
+# pidfile: /var/lock/subsys/gitbicket
+#
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# Get config.
+. /etc/sysconfig/network
+
+# Check that networking is up.
+[ "${NETWORKING}" = "no" ] && exit 0
+
+export JAVA_HOME=<%= node[:java][:java_home] %>/bin
+
+GITBUCKET_DIR=<%= node[:gitbucket][:install_dir] %>
+GITBUCKET_HOME=<%= node[:gitbucket][:home] %>
+PORT=<%= node[:gitbucket][:port] %>
+LOCKFILE="/var/lock/subsys/gitbucket"
+LOGFILE="/var/log/gitbucket.log"
+
+#SUDO_CMD="/usr/bin/ssh -t -t localhost /usr/bin/sudo"
+SUDO_CMD="/usr/local/bin/sshpass -p 'vagrant' /usr/bin/ssh -o StrictHostKeyChecking=no -t -t localhost /usr/bin/sudo"
+#START_CMD="$SUDO_CMD $JAVA_HOME/java -verbose -jar $GITBUCKET_DIR/gitbucket.war --port=$PORT --gitbucket.home=$GITBUCKET_HOME"
+START_CMD="$JAVA_HOME/java -verbose -jar $GITBUCKET_DIR/gitbucket.war --port=$PORT --gitbucket.home=$GITBUCKET_HOME"
+
+start() {
+        echo  "Starting gitbucket: "
+
+        if [ -f $LOCKFILE ]; then
+                action "gitbucket is running now." /bin/false
+                RETVAL=$?
+                echo ""
+        else
+                $START_CMD >> $LOGFILE 2>&1 &
+                echo "$!" > $LOCKFILE
+                RETVAL=$?
+                action "gitbucket" /bin/true
+                echo ""
+        fi
+}
+
+stop () {
+        echo  "Shutting down gitbucket: "
+        if [ -f $LOCKFILE ]; then
+                kill `cat $LOCKFILE`
+                rm -f $LOCKFILE
+                action "gitbucket" /bin/true
+        else
+                RETVAL=$?
+                action "gitbucket is not running." /bin/false
+                echo ""
+        fi
+}
+
+status() {
+        status gitbucket
+}
+
+restart() {
+        stop
+#       sleep 5
+        start
+}
+
+case "$1" in
+        start)
+                start
+                ;;
+        stop)
+                stop
+                ;;
+        restart)
+                restart
+                ;;
+        *)
+                echo "Usage: $0 {start|stop|restart}"
+                exit 1
+esac
+exit $RETVAL
